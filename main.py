@@ -81,6 +81,18 @@ def runProgram(tokens, labels):
             CheckMem(tokens[head+1].data)
             print(Mem[tokens[head+1].data])
             head+=1
+        elif tokens[head].data == "printchr":
+            CheckMem(tokens[head+1].data)
+            print(chr(Mem[tokens[head+1].data]))
+            head+=1
+        elif tokens[head].data == "input":
+            CheckMem(tokens[head+1].data)
+            Mem[tokens[head+1].data] = int(input())
+            head+=1
+        elif tokens[head].data == "inputchr":
+            CheckMem(tokens[head+1].data)
+            Mem[tokens[head+1].data] = int(ord(input()))
+            head+=1
         elif tokens[head].data == "storepos":
             CheckMem(tokens[head+1].data)
             Store(tokens[head+1], Token(TokenType.NUMBER, head))
@@ -152,9 +164,24 @@ def GenerateTokens(program) -> list:
         elif p[0] == "print":
             tokens.append(Token(TokenType.OP, "print"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))
+
+        elif p[0] == "printchr":
+            tokens.append(Token(TokenType.OP, "printchr"))
+            tokens.append(Token(TokenType.INDEX, int(p[1])))
+
+        elif p[0] == "input":
+            tokens.append(Token(TokenType.OP, "input"))
+            tokens.append(Token(TokenType.INDEX, int(p[1])))
+
+        elif p[0] == "inputchr":
+            tokens.append(Token(TokenType.OP, "inputchr"))
+            tokens.append(Token(TokenType.INDEX, int(p[1])))
+
+
         elif p[0] == "storepos":
             tokens.append(Token(TokenType.OP, "storepos"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))
+
         elif p[0] == "jumppos":
             tokens.append(Token(TokenType.OP, "jumppos"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))

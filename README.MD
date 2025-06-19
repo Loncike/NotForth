@@ -3,6 +3,9 @@
 - add <idx|num> <idx|num> <store idx>
 - sub <idx|num> <idx|num> <store idx>
 - print <idx> 
+- printchr <idx>
+- input <idx>
+- inputchr <idx> 
 - jumpIf <idx|num> <logic op> <idx|num> <labe to jump to>
 - jump <label>
 - storePos <idx>
