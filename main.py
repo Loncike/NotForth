@@ -17,6 +17,7 @@ class TokenType(Enum):
     OP = 3
     LOGICOP = 4
     LABEL = 5
+    INITLABEL = 6
 
 @dataclass
 class Token:
@@ -41,19 +42,23 @@ def Add(t1, t2, t3):
 def Sub(t1, t2, t3):
     n1 = Mem[t1.data] if t1.type == TokenType.INDEX else t1.data
     n2 = Mem[t2.data] if t2.type == TokenType.INDEX else t2.data
-    Mem[t3.data] = n1 + n2
+    Mem[t3.data] = n1 - n2
 
 def Store(t1, t2):
     Mem[t1.data] = Mem[t2.data] if t2.type == TokenType.INDEX else t2.data
 
-def JumpIf(idx1, op, idx2) -> bool:
-    return logicOps[op](Mem[int(idx1)], Mem[int(idx2)])
+def JumpIf(t1, op, t2) -> bool:
+    n1 = Mem[t1.data] if t1.type == TokenType.INDEX else t1.data
+    n2 = Mem[t2.data] if t2.type == TokenType.INDEX else t2.data
+    return logicOps[op.data](n1, n2)
 
 def runProgram(tokens, labels):
 
     head = 0
     while head < len(tokens):
-        if tokens[head].type != TokenType.OP: 
+        if tokens[head].type != TokenType.OP and tokens[head].type != TokenType.INITLABEL: 
+            print(tokens)
+            print(head, tokens[head])
             exit(1)
         if tokens[head].data == "store":
             CheckMem(tokens[head+1].data)
@@ -70,8 +75,9 @@ def runProgram(tokens, labels):
             head+=3
         elif tokens[head].data == "jumpif":
             if JumpIf(tokens[head+1], tokens[head+2], tokens[head+3]): 
-                head = labels[tokens[head+4]]
+                head = labels[tokens[head+4].data]
                 continue
+            head+=4
         elif tokens[head].data == "print":
             print(Mem[tokens[head+1].data])
             head+=1
@@ -80,17 +86,6 @@ def runProgram(tokens, labels):
 def loadProgram(file) -> str:
     with open(file, "r", encoding="utf-8") as f:
         return f.read().split("\n")
-
-def generateLabels(program):
-    labels = {}
-    for i in range(len(program)):
-        p = program[i].lower().split(" ")
-        if p[0] == "label":
-            labels[p[1]] = i
-    return labels
-
-
-
 
 def GenerateTokens(program) -> list:
     tokens = []
@@ -140,14 +135,23 @@ def GenerateTokens(program) -> list:
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[3])))
             tokens.append(Token(TokenType.LABEL, p[4]))
+        elif p[0] == "label":
+            tokens.append(Token(TokenType.INITLABEL, p[1]))
         elif p[0] == "print":
             tokens.append(Token(TokenType.OP, "print"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))
     return tokens
 
-
+def generateLabels(tokens):
+    labels = {}
+    for i in range(len(tokens)):
+        t = tokens[i]
+        if t.type == TokenType.INITLABEL:
+            labels[t.data] = i
+    return labels
 
 if __name__ == "__main__":
     program = loadProgram(sys.argv[1])
-    runProgram(GenerateTokens(program), generateLabels(program))
+    tokens = GenerateTokens(program)
+    runProgram(tokens, generateLabels(tokens))
 
