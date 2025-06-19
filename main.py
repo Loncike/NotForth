@@ -63,10 +63,14 @@ def runProgram(tokens, labels):
             Store(tokens[head+1], tokens[head+2])
             head+=2
         elif tokens[head].data == "add":
+            if tokens[head+1].type == TokenType.INDEX: CheckMem(tokens[head+1].data)
+            if tokens[head+2].type == TokenType.INDEX: CheckMem(tokens[head+2].data)
             if tokens[head+3].type == TokenType.INDEX: CheckMem(tokens[head+3].data)
             Add(tokens[head+1], tokens[head+2], tokens[head+3])
             head+=3
         elif tokens[head].data == "sub":
+            if tokens[head+3].type == TokenType.INDEX: CheckMem(tokens[head+3].data)
+            if tokens[head+2].type == TokenType.INDEX: CheckMem(tokens[head+2].data)
             if tokens[head+3].type == TokenType.INDEX: CheckMem(tokens[head+3].data)
             Sub(tokens[head+1], tokens[head+2], tokens[head+3])
             head+=3
@@ -99,6 +103,8 @@ def runProgram(tokens, labels):
             head+=1
         elif tokens[head].data == "jumppos":
             head = Mem[tokens[head+1].data]+3 
+        elif tokens[head].data == "exit":
+            return
         head+=1
 
 def loadProgram(file) -> str:
@@ -185,6 +191,9 @@ def GenerateTokens(program) -> list:
         elif p[0] == "jumppos":
             tokens.append(Token(TokenType.OP, "jumppos"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))
+
+        elif p[0] == "exit":
+            tokens.append(Token(TokenType.OP, "exit"))
     return tokens
 
 def generateLabels(tokens):
