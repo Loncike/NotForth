@@ -27,12 +27,9 @@ class Token:
 Mem = []
 
 def CheckMem(idx):
-    try:
-        if len(Mem)-1 < int(idx):
-            for i in range((int(idx) - len(Mem)) + 1):
-                Mem.append(0)
-    except:
-        pass
+    if len(Mem)-1 < int(idx):
+        for i in range((int(idx) - len(Mem)) + 1):
+            Mem.append(0)
 
 def Add(t1, t2, t3):
     n1 = Mem[t1.data] if t1.type == TokenType.INDEX else t1.data
@@ -78,9 +75,18 @@ def runProgram(tokens, labels):
                 head = labels[tokens[head+4].data]
                 continue
             head+=4
+        elif tokens[head].data == "jump":
+            head = labels[tokens[head+1].data]
         elif tokens[head].data == "print":
+            CheckMem(tokens[head+1].data)
             print(Mem[tokens[head+1].data])
             head+=1
+        elif tokens[head].data == "storepos":
+            CheckMem(tokens[head+1].data)
+            Store(tokens[head+1], Token(TokenType.NUMBER, head))
+            head+=1
+        elif tokens[head].data == "jumppos":
+            head = Mem[tokens[head+1].data]+3 
         head+=1
 
 def loadProgram(file) -> str:
@@ -135,10 +141,22 @@ def GenerateTokens(program) -> list:
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[3])))
             tokens.append(Token(TokenType.LABEL, p[4]))
+
+        elif p[0] == "jump":
+            tokens.append(Token(TokenType.OP, "jump"))
+            tokens.append(Token(TokenType.LABEL, p[1]))
+
         elif p[0] == "label":
             tokens.append(Token(TokenType.INITLABEL, p[1]))
+
         elif p[0] == "print":
             tokens.append(Token(TokenType.OP, "print"))
+            tokens.append(Token(TokenType.INDEX, int(p[1])))
+        elif p[0] == "storepos":
+            tokens.append(Token(TokenType.OP, "storepos"))
+            tokens.append(Token(TokenType.INDEX, int(p[1])))
+        elif p[0] == "jumppos":
+            tokens.append(Token(TokenType.OP, "jumppos"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))
     return tokens
 
