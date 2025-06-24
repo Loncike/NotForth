@@ -1,6 +1,72 @@
 import operator, sys
 from dataclasses import dataclass
 from enum import Enum
+import ctypes
+import ctypes.util
+
+libc = ctypes.CDLL(None)
+syscall_fn = libc.syscall
+
+# mem_out writes to Mem
+# mem_in reads from Mem
+SYSCALLS = {
+        0: ["uint", "mem_out", "size_t"],
+        1: ["uint", "mem_in", "size_t"],
+        60: ["int"]
+
+        }
+MAXARGS = 6
+Mem = []
+def CheckMem(idx):
+    if len(Mem)-1 < int(idx):
+        for i in range((int(idx) - len(Mem)) + 1):
+            Mem.append(0)
+
+
+
+def convertArgs(syscall, args):
+    retArgs = []
+    temp = {}
+    for i in range(len(args)):
+        if SYSCALLS[syscall][i] == "uint":
+            retArgs.append(ctypes.c_uint(args[i]))
+        elif SYSCALLS[syscall][i] == "mem_in":
+            offset = args[i]
+            length = args[i + 1]
+            buf = (ctypes.c_ubyte * length)(*Mem[offset:offset + length])
+            retArgs.append(ctypes.cast(buf, ctypes.c_void_p))
+        elif SYSCALLS[syscall][i] == "mem_out":
+            offset = args[i]
+            length = args[i + 1]
+            buf = ctypes.create_string_buffer(length)
+            retArgs.append(ctypes.cast(buf, ctypes.c_void_p))
+            temp['buf'] = buf
+            temp['offset'] = offset
+        elif SYSCALLS[syscall][i] == "size_t":
+            retArgs.append(ctypes.c_size_t(args[i]))
+    return retArgs, temp
+
+
+def copy_c_void_p_to_mem(ptr, length, offset):
+    byte_ptr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_ubyte * length))
+    for i in range(length):
+        CheckMem(offset+i)
+        Mem[offset + i] = byte_ptr.contents[i]
+
+def doSyscall(syscall, args):
+    c_args, extra = convertArgs(syscall, args) 
+
+    while len(c_args) < MAXARGS:
+        c_args.append(ctypes.c_int(0))
+
+    res = syscall_fn(syscall, *c_args)
+
+    if 'buf' in extra:
+        ptr = ctypes.cast(extra['buf'], ctypes.c_void_p)
+        copy_c_void_p_to_mem(ptr, res, extra['offset'])
+
+
+    return res
 
 logicOps = {
     "==": operator.eq,
@@ -22,14 +88,8 @@ class TokenType(Enum):
 @dataclass
 class Token:
     type: TokenType
-    data: int | None | str
+    data: int | None | str | list
 
-Mem = []
-
-def CheckMem(idx):
-    if len(Mem)-1 < int(idx):
-        for i in range((int(idx) - len(Mem)) + 1):
-            Mem.append(0)
 
 def Add(t1, t2, t3):
     n1 = Mem[t1.data] if t1.type == TokenType.INDEX else t1.data
@@ -52,6 +112,7 @@ def JumpIf(t1, op, t2) -> bool:
 def runProgram(tokens, labels):
 
     head = 0
+    syscallargsN = 0
     while head < len(tokens):
         if tokens[head].type != TokenType.OP and tokens[head].type != TokenType.INITLABEL: 
             print(tokens)
@@ -81,30 +142,24 @@ def runProgram(tokens, labels):
             head+=4
         elif tokens[head].data == "jump":
             head = labels[tokens[head+1].data]
-        elif tokens[head].data == "print":
-            CheckMem(tokens[head+1].data)
-            print(Mem[tokens[head+1].data])
-            head+=1
-        elif tokens[head].data == "printchr":
-            CheckMem(tokens[head+1].data)
-            print(chr(Mem[tokens[head+1].data]))
-            head+=1
-        elif tokens[head].data == "input":
-            CheckMem(tokens[head+1].data)
-            Mem[tokens[head+1].data] = int(input())
-            head+=1
-        elif tokens[head].data == "inputchr":
-            CheckMem(tokens[head+1].data)
-            Mem[tokens[head+1].data] = int(ord(input()))
-            head+=1
         elif tokens[head].data == "storepos":
             CheckMem(tokens[head+1].data)
             Store(tokens[head+1], Token(TokenType.NUMBER, head))
             head+=1
         elif tokens[head].data == "jumppos":
             head = Mem[tokens[head+1].data]+3 
-        elif tokens[head].data == "exit":
-            return
+
+        elif tokens[head].data == "syscallargs":
+            syscallargsN = tokens[head+1].data
+            head+=1
+        elif tokens[head].data == "syscall":
+            syscallNum = tokens[head+1].data
+            args = []
+            for i in range(1, syscallargsN):
+                    args.append(tokens[head+i+1].data)
+            Mem[head+1].data = doSyscall(syscallNum, args)
+            head+=syscallargsN
+
         head+=1
 
 def loadProgram(file) -> str:
@@ -113,6 +168,7 @@ def loadProgram(file) -> str:
 
 def GenerateTokens(program) -> list:
     tokens = []
+    syscallargsN = 0
     for p in program:
         p = p.lower().split(" ")
         if p[0] == "store":
@@ -166,28 +222,22 @@ def GenerateTokens(program) -> list:
 
         elif p[0] == "label":
             tokens.append(Token(TokenType.INITLABEL, p[1]))
-
-        elif p[0] == "print":
-            tokens.append(Token(TokenType.OP, "print"))
-            tokens.append(Token(TokenType.INDEX, int(p[1])))
-
-        elif p[0] == "printchr":
-            tokens.append(Token(TokenType.OP, "printchr"))
-            tokens.append(Token(TokenType.INDEX, int(p[1])))
-
-        elif p[0] == "input":
-            tokens.append(Token(TokenType.OP, "input"))
-            tokens.append(Token(TokenType.INDEX, int(p[1])))
-
-        elif p[0] == "inputchr":
-            tokens.append(Token(TokenType.OP, "inputchr"))
-            tokens.append(Token(TokenType.INDEX, int(p[1])))
-
+        
+        elif p[0] == "syscallargs":
+            tokens.append(Token(TokenType.OP, "syscallargs"))
+            tokens.append(Token(TokenType.NUMBER, int(p[1])))
+            syscallargsN = int(p[1])
+        elif p[0] == "syscall":
+            tokens.append(Token(TokenType.OP, "syscall"))
+            for i in range(syscallargsN):
+                if p[i+1][0] == "$": 
+                    tokens.append(Token(TokenType.NUMBER, int(p[i+1][1:])))
+                else:
+                    tokens.append(Token(TokenType.INDEX, int(p[i+1])))
 
         elif p[0] == "storepos":
             tokens.append(Token(TokenType.OP, "storepos"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))
-
         elif p[0] == "jumppos":
             tokens.append(Token(TokenType.OP, "jumppos"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))

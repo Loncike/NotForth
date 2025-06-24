@@ -2,15 +2,12 @@
 - store <idx> <idx|num> 
 - add <idx|num> <idx|num> <store idx>
 - sub <idx|num> <idx|num> <store idx>
-- print <idx> 
-- printchr <idx>
-- input <idx>
-- inputchr <idx> 
 - jumpIf <idx|num> <logic op> <idx|num> <labe to jump to>
 - jump <label>
 - storePos <idx>
 - jumpPos <idx of pos>
-- exit
+- syscallargs <num>
+- syscall <idx|num>
 
 - Numbers can be used with '$' prefix. Like: store 0 $44 will store the number 44, store 0 1 will copy the data from 1 idx to 0 idx
 
