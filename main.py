@@ -16,7 +16,7 @@ SYSCALLS = {
 
         }
 MAXARGS = 6
-Mem = []
+Mem = [0] * 1000
 def CheckMem(idx):
     if len(Mem)-1 < int(idx):
         for i in range((int(idx) - len(Mem)) + 1):
@@ -79,42 +79,93 @@ logicOps = {
 
 class TokenType(Enum):
     NUMBER = 1
-    INDEX = 2
-    OP = 3
-    LOGICOP = 4
-    LABEL = 5
-    INITLABEL = 6
+    POINTER= 2
+    INDEX = 3
+    OP = 4
+    LOGICOP = 5
+    LABEL = 6
+    INITLABEL = 7
 
 @dataclass
 class Token:
     type: TokenType
     data: int | None | str | list
 
+@dataclass
+class Macro:
+    tokens: list
 
 def Add(t1, t2, t3):
-    n1 = Mem[t1.data] if t1.type == TokenType.INDEX else t1.data
-    n2 = Mem[t2.data] if t2.type == TokenType.INDEX else t2.data
-    Mem[t3.data] = n1 + n2
+    n1, n2 = 0, 0
+    if t1.type == TokenType.INDEX:
+        n1 = Mem[t1.data] 
+    elif t1.type == TokenType.POINTER:
+        n1 = Mem[Mem[t1.data]]
+    else: 
+        n1 = t1.data
 
+    if t2.type == TokenType.INDEX:
+        n2 = Mem[t2.data] 
+    elif t2.type == TokenType.POINTER:
+        n2 = Mem[Mem[t2.data]]
+    else: 
+        n2 = t2.data
+    
+    if t3.type == TokenType.INDEX:
+        Mem[t3.data] = n1 + n2
+    elif t3.type == TokenType.POINTER:
+        Mem[Mem[t3.data]] = n1 + n2
+ 
 def Sub(t1, t2, t3):
-    n1 = Mem[t1.data] if t1.type == TokenType.INDEX else t1.data
-    n2 = Mem[t2.data] if t2.type == TokenType.INDEX else t2.data
-    Mem[t3.data] = n1 - n2
+    n1, n2 = 0, 0
+    if t1.type == TokenType.INDEX:
+        n1 = Mem[t1.data] 
+    elif t1.type == TokenType.POINTER:
+        n1 = Mem[Mem[t1.data]]
+    else: 
+        n1 = t1.data
 
+    if t2.type == TokenType.INDEX:
+        n2 = Mem[t2.data] 
+    elif t2.type == TokenType.POINTER:
+        n2 = Mem[Mem[t2.data]]
+    else: 
+        n2 = t2.data
+    
+    if t3.type == TokenType.INDEX:
+        Mem[t3.data] = n1 - n2
+    elif t3.type == TokenType.POINTER:
+        Mem[Mem[t3.data]] = n1 - n2
+ 
 def Store(t1, t2):
     Mem[t1.data] = Mem[t2.data] if t2.type == TokenType.INDEX else t2.data
 
 def JumpIf(t1, op, t2) -> bool:
-    n1 = Mem[t1.data] if t1.type == TokenType.INDEX else t1.data
-    n2 = Mem[t2.data] if t2.type == TokenType.INDEX else t2.data
+    n1, n2 = 0, 0
+    if t1.type == TokenType.INDEX:
+        n1 = Mem[t1.data] 
+    elif t1.type == TokenType.POINTER:
+        n1 = Mem[Mem[t1.data]]
+    else: 
+        n1 = t1.data
+
+    if t2.type == TokenType.INDEX:
+        n2 = Mem[t2.data] 
+    elif t2.type == TokenType.POINTER:
+        n2 = Mem[Mem[t2.data]]
+    else: 
+        n2 = t2.data
+    
     return logicOps[op.data](n1, n2)
 
 def runProgram(tokens, labels):
-
     head = 0
     syscallargsN = 0
     while head < len(tokens):
+        #input("...")
+        #print(tokens[head], tokens[head+1], tokens[head+2], end=" ")
         if tokens[head].type != TokenType.OP and tokens[head].type != TokenType.INITLABEL: 
+            print("ERROR")
             print(tokens)
             print(head, tokens[head])
             exit(1)
@@ -147,7 +198,7 @@ def runProgram(tokens, labels):
             Store(tokens[head+1], Token(TokenType.NUMBER, head))
             head+=1
         elif tokens[head].data == "jumppos":
-            head = Mem[tokens[head+1].data]+3 
+            head = Mem[tokens[head+1].data]+4 
 
         elif tokens[head].data == "syscallargs":
             syscallargsN = tokens[head+1].data
@@ -157,61 +208,90 @@ def runProgram(tokens, labels):
             args = []
             for i in range(1, syscallargsN):
                     args.append(tokens[head+i+1].data)
-            Mem[head+1].data = doSyscall(syscallNum, args)
+            ##Mem[head+1].data = TODO implament return 
+            doSyscall(syscallNum, args)
             head+=syscallargsN
 
+
+        #print(Mem[:30], "\n")
         head+=1
+    print("Memory dump:", Mem[:30])
 
 def loadProgram(file) -> str:
     with open(file, "r", encoding="utf-8") as f:
         return f.read().split("\n")
 
-def GenerateTokens(program) -> list:
+def GenerateTokens(program, macros={}) -> list:
     tokens = []
+    macros = macros
     syscallargsN = 0
+    program = iter(program)
     for p in program:
         p = p.lower().split(" ")
-        if p[0] == "store":
+
+        if p[0] in macros:
+            for t in macros[p[0]].tokens:
+                tokens.append(t)
+
+        elif p[0] == "store":
             tokens.append(Token(TokenType.OP, "store"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))
             if p[2][0] == "$": 
                 tokens.append(Token(TokenType.NUMBER, int(p[2][1:])))
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[2])))
-
         elif p[0] == "add":
             tokens.append(Token(TokenType.OP, "add"))
             if p[1][0] == "$": 
                 tokens.append(Token(TokenType.NUMBER, int(p[1][1:])))
+            elif p[1][0] == "@": 
+                tokens.append(Token(TokenType.POINTER, int(p[1][1:])))
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[1])))
             if p[2][0] == "$": 
                 tokens.append(Token(TokenType.NUMBER, int(p[2][1:])))
+            elif p[2][0] == "@": 
+                tokens.append(Token(TokenType.POINTER, int(p[2][1:])))
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[2])))
-            tokens.append(Token(TokenType.INDEX, int(p[3])))
+            if p[3][0] == "@": 
+                tokens.append(Token(TokenType.POITER, int(p[3][1:])))
+            else:
+                tokens.append(Token(TokenType.INDEX, int(p[3])))
 
         elif p[0] == "sub":
             tokens.append(Token(TokenType.OP, "sub"))
             if p[1][0] == "$": 
                 tokens.append(Token(TokenType.NUMBER, int(p[1][1:])))
+            elif p[1][0] == "@": 
+                tokens.append(Token(TokenType.POINTER, int(p[1][1:])))
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[1])))
             if p[2][0] == "$": 
                 tokens.append(Token(TokenType.NUMBER, int(p[2][1:])))
+            elif p[2][0] == "@": 
+                tokens.append(Token(TokenType.POINTER, int(p[2][1:])))
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[2])))
-            tokens.append(Token(TokenType.INDEX, int(p[3])))
+            if p[3][0] == "@": 
+                tokens.append(Token(TokenType.POINTER, int(p[3][1:])))
+            else:
+                tokens.append(Token(TokenType.INDEX, int(p[3])))
+
 
         elif p[0] == "jumpif":
             tokens.append(Token(TokenType.OP, "jumpif"))
             if p[1][0] == "$": 
                 tokens.append(Token(TokenType.NUMBER, int(p[1][1:])))
+            elif p[1][0] == "@": 
+                tokens.append(Token(TokenType.POINTER, int(p[1][1:])))
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[1])))     
             tokens.append(Token(TokenType.LOGICOP, p[2]))
             if p[3][0] == "$": 
                 tokens.append(Token(TokenType.NUMBER, int(p[3][1:])))
+            elif p[3][0] == "@": 
+                tokens.append(Token(TokenType.POINTER, int(p[3][1:])))
             else:
                 tokens.append(Token(TokenType.INDEX, int(p[3])))
             tokens.append(Token(TokenType.LABEL, p[4]))
@@ -225,9 +305,9 @@ def GenerateTokens(program) -> list:
         
         elif p[0] == "syscallargs":
             tokens.append(Token(TokenType.OP, "syscallargs"))
-            tokens.append(Token(TokenType.NUMBER, int(p[1])))
-            syscallargsN = int(p[1])
-        elif p[0] == "syscall":
+            if p[1][0] == "$": tokens.append(Token(TokenType.NUMBER, int(p[1][1:])))
+            syscallargsN = int(p[1][1:])
+        elif p[0] == "syscall": ## TODO: Pointers
             tokens.append(Token(TokenType.OP, "syscall"))
             for i in range(syscallargsN):
                 if p[i+1][0] == "$": 
@@ -242,8 +322,17 @@ def GenerateTokens(program) -> list:
             tokens.append(Token(TokenType.OP, "jumppos"))
             tokens.append(Token(TokenType.INDEX, int(p[1])))
 
-        elif p[0] == "exit":
-            tokens.append(Token(TokenType.OP, "exit"))
+        elif p[0] == "macro":
+            m = p[1]
+            macros[m] = Macro([])
+            s = []
+            while p[0] != "end":
+                p = next(program, None)
+                s.append(p) if p.lower().split(" ")[0] != "end" else ""
+                p = p.lower().split(" ")
+            macros[m].tokens = GenerateTokens(s, macros)
+
+
     return tokens
 
 def generateLabels(tokens):
