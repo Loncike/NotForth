@@ -11,8 +11,7 @@
 | jumpPos       | `<idx>`                  | Jumps to the position previously stored at the given index.|
 | syscallargs   | `<num>`                        | Specifies the total number of arguments that will be passed to the upcoming syscall, including the syscall number itself.|
 | syscall       | `<idx|num>`                    | Executes a system call using the specified syscall number and the arguments provided.                          |
-
-> Numbers can be used with '$' prefix. Like: store 0 $44 will store the number 44, store 0 1 will copy the data from 1 idx to 0 idx
+> **Note**: Numbers must be prefixed with $. For example, store 0 $44 stores the number 44 at index 0, whereas store 0 1 copies the value from index 1 to index 0.
 
 ## Logic ops:
 | Operator | Meaning          |
