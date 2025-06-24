@@ -56,6 +56,7 @@
     </tr>
   </tbody>
 </table>
+
 > **Note**: Numbers must be prefixed with $. For example, store 0 $44 stores the number 44 at index 0, whereas store 0 1 copies the value from index 1 to index 0.
 
 ## Logic ops:
