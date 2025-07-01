@@ -25,6 +25,16 @@
       <td>Takes the first two arguments (which can be either indices or numbers), performs subtraction, and stores the result at the index specified by the third argument.</td>
     </tr>
     <tr>
+      <td>mul</td>
+      <td>&lt;idx|num&gt; &lt;idx|num&gt; &lt;store idx&gt;</td>
+      <td>Mults 2 number, and save them</td>
+    </tr>
+    <tr>
+      <td>div</td>
+      <td>&lt;idx|num&gt; &lt;idx|num&gt; &lt;store idx&gt; &lt;store idx&gt;</td>
+      <td>divide 2 number, save quotient at first store index, and save remainder at second store index</td>
+    </tr>
+    <tr>
       <td>printnum</td>
       <td>&lt;idx|num&gt;</td>
       <td>print the number to the stdout</td>
@@ -40,16 +50,6 @@
       <td>Unconditionally jumps to the specified label.</td>
     </tr>
     <tr>
-      <td>storePos</td>
-      <td>&lt;idx&gt;</td>
-      <td>Saves the current position (instruction pointer) to the specified index</td>
-    </tr>
-    <tr>
-      <td>jumpPos</td>
-      <td>&lt;idx&gt;</td>
-      <td>Jumps to the position previously stored at the given index.</td>
-    </tr>
-       <tr>
       <td>syscall</td>
       <td>&lt;idx|num&gt;</td>
       <td>Executes a system call using the specified syscall number and the arguments provided.</td>

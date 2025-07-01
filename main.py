@@ -33,7 +33,7 @@ class Macro:
     tokens: list
     argumentsIdx: dict
 
-builtinwords = ["store", "add", "sub", "jumpif", "jump", "syscallargs", "syscall", "macro", "include", "end", "label", "printnum"]
+builtinwords = ["store", "add", "sub", "mul", "div", "jumpif", "jump", "syscallargs", "syscall", "macro", "include", "end", "label", "printnum"]
 
 def lexFile(filePath):
     with open(filePath, "r", encoding="utf-8") as f:
@@ -128,7 +128,6 @@ def preProcess(tokens, macros={}):
                 labels[labelName.value] = len(program)+1
             else: 
                 raise Exception(f"Expected string for the name of the label, got: {labelName.type} with the value of {labelName.value}")
-        ##elif token.type == TokenType.WORD and token.value in labels:
         elif token.type == TokenType.WORD and token.value in macros:
             macroName = token.value
             macro = macros[macroName]
@@ -326,6 +325,60 @@ class Interpreter():
         elif t3.type == TokenType.POINTER:
             self.Mem[self.Mem[t3.value]] = n1 - n2
 
+    def Mul(self, t1, t2, t3):
+        n1, n2 = 0, 0
+        if t1.type == TokenType.INDEX:
+            self.CheckMemory(t1.value)
+            n1 = self.Mem[t1.value] 
+        elif t1.type == TokenType.POINTER:
+            n1 = self.Mem[self.Mem[t1.value]]
+        else: 
+            n1 = t1.value
+
+        if t2.type == TokenType.INDEX:
+            self.CheckMemory(t2.value)
+            n2 = self.Mem[t2.value] 
+        elif t2.type == TokenType.POINTER:
+            n2 = self.Mem[self.Mem[t2.value]]
+        else: 
+            n2 = t2.value
+
+        if t3.type == TokenType.INDEX:
+            self.CheckMemory(t3.value)
+            self.Mem[t3.value] = n1 * n2
+        elif t3.type == TokenType.POINTER:
+            self.Mem[self.Mem[t3.value]] = n1 * n2
+
+    def Div(self, t1, t2, t3, t4):
+        n1, n2 = 0, 0
+        if t1.type == TokenType.INDEX:
+            self.CheckMemory(t1.value)
+            n1 = self.Mem[t1.value] 
+        elif t1.type == TokenType.POINTER:
+            n1 = self.Mem[self.Mem[t1.value]]
+        else: 
+            n1 = t1.value
+
+        if t2.type == TokenType.INDEX:
+            self.CheckMemory(t2.value)
+            n2 = self.Mem[t2.value] 
+        elif t2.type == TokenType.POINTER:
+            n2 = self.Mem[self.Mem[t2.value]]
+        else: 
+            n2 = t2.value
+
+        if t3.type == TokenType.INDEX:
+            self.CheckMemory(t3.value)
+            self.Mem[t3.value] = n1 // n2
+        elif t3.type == TokenType.POINTER:
+            self.Mem[self.Mem[t3.value]] = n1 // n2
+
+        # remainder
+        if t4.type == TokenType.INDEX:
+            self.CheckMemory(t4.value)
+            self.Mem[t4.value] = n1 % n2
+        elif t4.type == TokenType.POINTER:
+            self.Mem[self.Mem[t4.value]] = n1 % n2 
 
     def JumpIf(self, t1, op, t2) -> bool:
         n1, n2 = 0, 0
@@ -342,11 +395,11 @@ class Interpreter():
             n2 = self.Mem[self.Mem[t2.value]]
         else: 
             n2 = t2.value
-        
         try:
             return self.LogicOps[op.value](n1, n2)
         except:
             print(f"Undefined logic op: {op.value}")
+            exit(1)
 
     def Run(self, debug=False):
         ip = 0
@@ -362,9 +415,15 @@ class Interpreter():
             elif self.Program[ip].type == TokenType.BUILTINWORD and self.Program[ip].value == "sub":
                 self.Sub(self.Program[ip+1], self.Program[ip+2], self.Program[ip+3])
                 ip+=3
+            elif self.Program[ip].type == TokenType.BUILTINWORD and self.Program[ip].value == "mul":
+                self.Mul(self.Program[ip+1], self.Program[ip+2], self.Program[ip+3])
+                ip+=3
+            elif self.Program[ip].type == TokenType.BUILTINWORD and self.Program[ip].value == "div":
+                self.Div(self.Program[ip+1], self.Program[ip+2], self.Program[ip+3], self.Program[ip+4])
+                ip+=4
             elif self.Program[ip].type == TokenType.BUILTINWORD and self.Program[ip].value == "jumpif":
                 if self.JumpIf(self.Program[ip+1], self.Program[ip+2], self.Program[ip+3]):
-                    ip = self.Labels[self.Program[ip+4].value]
+                    ip = self.Labels[self.Program[ip+4].value]-1
                     continue
             elif self.Program[ip].type == TokenType.BUILTINWORD and self.Program[ip].value == "jump":
                     ip = self.Labels[self.Program[ip+1].value]-1
@@ -390,7 +449,7 @@ class Interpreter():
                     else: 
                         n1 = t1.value
 
-                    print(int(self.Mem[n1]))
+                    print(int(n1))
                     ip+=1
 
             ip+=1
@@ -489,6 +548,73 @@ class Compiler():
                     file.write(f"    mov dword [mem + ebx*4], eax\n")
 
                 ip+=3
+            elif self.Program[ip].type == TokenType.BUILTINWORD and self.Program[ip].value == "mul":
+                t1 = self.Program[ip+1]
+                t2 = self.Program[ip+2]
+                t3 = self.Program[ip+3]
+                if t1.type == TokenType.INDEX:
+                    file.write(f"    mov eax, dword [mem + {t1.value}*4]\n")
+                elif t1.type == TokenType.POINTER:
+                    file.write(f"    mov eax, dword [mem + {t1.value}*4]\n")
+                    file.write(f"    mov eax, dword [mem + eax*4]\n")
+                else: 
+                    file.write(f"    mov eax, {t1.value}")
+
+                if t2.type == TokenType.INDEX:
+                    file.write(f"    mov ebx, dword [mem + {t2.value}*4]\n")
+                elif t2.type == TokenType.POINTER:
+                    file.write(f"    mov ebx, dword [mem + {t2.value}*4]\n")
+                    file.write(f"    mov ebx, dword [mem + ebx*4]\n")
+                else: 
+                    file.write(f"    mov ebx, {t2.value}\n")
+
+                file.write(f"    mul ebx\n")
+
+                
+                if t3.type == TokenType.INDEX:
+                    file.write(f"    mov dword [mem + {t3.value}*4], eax\n")
+                elif t3.type == TokenType.POINTER:
+                    file.write(f"    mov ebx, dword [mem + {t3.value}*4]\n")
+                    file.write(f"    mov dword [mem + ebx*4], eax\n")
+                ip+=3
+            elif self.Program[ip].type == TokenType.BUILTINWORD and self.Program[ip].value == "div":
+                t1 = self.Program[ip+1]
+                t2 = self.Program[ip+2]
+                t3 = self.Program[ip+3]
+                t4 = self.Program[ip+4]
+                if t1.type == TokenType.INDEX:
+                    file.write(f"    mov eax, dword [mem + {t1.value}*4]\n")
+                elif t1.type == TokenType.POINTER:
+                    file.write(f"    mov eax, dword [mem + {t1.value}*4]\n")
+                    file.write(f"    mov eax, dword [mem + eax*4]\n")
+                else: 
+                    file.write(f"    mov eax, {t1.value}")
+
+                if t2.type == TokenType.INDEX:
+                    file.write(f"    mov ecx, dword [mem + {t2.value}*4]\n")
+                elif t2.type == TokenType.POINTER:
+                    file.write(f"    mov ecx, dword [mem + {t2.value}*4]\n")
+                    file.write(f"    mov ecx, dword [mem + ecx*4]\n")
+                else: 
+                    file.write(f"    mov ecx, {t2.value}\n")
+
+                file.write(f"    xor edx, edx\n")
+                file.write(f"    div ecx\n")
+
+                
+                if t3.type == TokenType.INDEX:
+                    file.write(f"    mov dword [mem + {t3.value}*4], eax\n")
+                elif t3.type == TokenType.POINTER:
+                    file.write(f"    mov ebx, dword [mem + {t3.value}*4]\n")
+                    file.write(f"    mov dword [mem + ebx*4], eax\n")
+
+                if t4.type == TokenType.INDEX:
+                    file.write(f"    mov dword [mem + {t4.value}*4], edx\n")
+                elif t4.type == TokenType.POINTER:
+                    file.write(f"    mov ebx, dword [mem + {t4.value}*4]\n")
+                    file.write(f"    mov dword [mem + ebx*4], edx\n")
+
+                ip+=4
             elif self.Program[ip].type == TokenType.BUILTINWORD and self.Program[ip].value == "jumpif":
                 t1 = self.Program[ip+1]
                 op = self.Program[ip+2].value

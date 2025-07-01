@@ -3,3 +3,4 @@ store 5 $10
 store 1 $11
 
 add @0 1 0
+printnum 0
