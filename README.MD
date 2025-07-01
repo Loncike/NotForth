@@ -25,6 +25,11 @@
       <td>Takes the first two arguments (which can be either indices or numbers), performs subtraction, and stores the result at the index specified by the third argument.</td>
     </tr>
     <tr>
+      <td>printnum</td>
+      <td>&lt;idx|num&gt;</td>
+      <td>print the number to the stdout</td>
+    </tr>
+    <tr>
       <td>jumpIf</td>
       <td>&lt;idx|num&gt; &lt;logic op&gt; &lt;idx|num&gt; &lt;label to jump to&gt;</td>
       <td>Compares the first two arguments (which can be numbers or indices) using a logical operator, and jumps to the specified label if the condition is true.</td>
@@ -58,6 +63,7 @@
 </table>
 
 > **Note**: Numbers must be prefixed with $. For example, store 0 $44 stores the number 44 at index 0, whereas store 0 1 copies the value from index 1 to index 0.
+
 > To dereference a pointer (i.e., access the value at the address stored in a memory index), prefix the index with @.
 > **Note**: The @ prefix is used only for reading (dereferencing). Writing to a dereferenced pointer must be done manually.
 ## Logic ops:
