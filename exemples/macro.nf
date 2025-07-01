@@ -1,12 +1,10 @@
-macro print
-syscallargs $4
-syscall $1 $0 100 99
+macro print buf buf_len
+syscall $1 $0 buf buf_len
 end
 
-store 99 $2
 store 100 $72
 store 101 $87
 
-print
+print 100 $2
 
 

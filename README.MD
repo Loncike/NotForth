@@ -44,12 +44,7 @@
       <td>&lt;idx&gt;</td>
       <td>Jumps to the position previously stored at the given index.</td>
     </tr>
-    <tr>
-      <td>syscallargs</td>
-      <td>&lt;num&gt;</td>
-      <td>Specifies the total number of arguments that will be passed to the upcoming syscall, including the syscall number itself.</td>
-    </tr>
-    <tr>
+       <tr>
       <td>syscall</td>
       <td>&lt;idx|num&gt;</td>
       <td>Executes a system call using the specified syscall number and the arguments provided.</td>
@@ -64,7 +59,7 @@
 
 > **Note**: Numbers must be prefixed with $. For example, store 0 $44 stores the number 44 at index 0, whereas store 0 1 copies the value from index 1 to index 0.
 > To dereference a pointer (i.e., access the value at the address stored in a memory index), prefix the index with @.
-> **Note**: The @ prefix is used only for reading (dereferencing). Writing to a dereferenced pointer must be done manual.
+> **Note**: The @ prefix is used only for reading (dereferencing). Writing to a dereferenced pointer must be done manually.
 ## Logic ops:
 | Operator | Meaning          |
 |----------|------------------|

@@ -15,6 +15,7 @@ class TokenType(Enum):
     POINTER = auto()
     WORD = auto()
     STRING = auto()
+    LOGICOP = auto()
 
 @dataclass
 class Loc:
@@ -47,13 +48,19 @@ def lexFile(filePath):
             elif file[i] in ascii_letters:
                 s = file[i]
                 i+=1
-                while file[i] in ascii_letters:
+                while file[i] in ascii_letters + "_-":
                     s += file[i]
                     i+=1
                 if s in builtinwords: 
                     tokens.append(Token(TokenType.BUILTINWORD, s, Loc(line, filePath)))
                 else:
                     tokens.append(Token(TokenType.WORD, s, Loc(line, filePath)))
+            elif file[i] in "<>=!":
+                s = file[i]
+                if file[i+1] in "<>=": 
+                    s += file[i+1] 
+                    i+=1
+                tokens.append(Token(TokenType.LOGICOP, s, Loc(line, filePath)))
             elif file[i] == "$":
                 i+=1
                 s = ""
@@ -135,6 +142,7 @@ def preProcess(tokens, macros={}):
             replacedTokens = []
             for t in macro.tokens:
                 if t.type == TokenType.WORD and t.value in macro.argumentsIdx:
+                    print(t)
                     replacedTokens.append(args[macro.argumentsIdx[t.value]])
                 else:
                     replacedTokens.append(t)
@@ -174,30 +182,72 @@ class Interpreter():
     
     def CheckMemory(self, idx):
         if len(self.Mem)-1 < idx:
-            self.Mem.extend([0] * (idx - len(self.Mem)))
-
-
+            self.Mem.extend([0] * (idx - len(self.Mem) + 1))
 
     def convertArgs(self, syscall, args):
         retArgs = []
         temp = {}
         for i in range(len(args)):
             if self.SYSCALLS[syscall][i] == "uint":
-                retArgs.append(ctypes.c_uint(self.Mem[args[i]]))
+                n = 0
+                if args[i].type == TokenType.INDEX:
+                    n = self.Mem[args[i].value] 
+                elif args[i].type == TokenType.POINTER:
+                    n = self.Mem[self.Mem[args[i].value]]
+                else: 
+                    n = args[i].value
+
+                retArgs.append(ctypes.c_uint(n))
             elif self.SYSCALLS[syscall][i] == "mem_in":
-                offset = args[i]
-                length = args[i + 1]
+                offset = 0
+                if args[i].type == TokenType.NUMBER:
+                    print("Expected Index or Pointer, got Number")
+                    exit(1)
+                elif args[i].type == TokenType.INDEX:
+                    offset = args[i].value
+                elif args[i].type == TokenType.POINTER:
+                    offset = self.Mem[args[i].value]
+
+                length = 0
+                if args[i+1].type == TokenType.INDEX:
+                    length = self.Mem[args[i+1].value] 
+                elif args[i+1].type == TokenType.POINTER:
+                    length = self.Mem[self.Mem[args[i+1].value]]
+                else: 
+                    length = args[i+1].value
                 buf = (ctypes.c_ubyte * length)(*self.Mem[offset:offset + length])
                 retArgs.append(ctypes.cast(buf, ctypes.c_void_p))
             elif self.SYSCALLS[syscall][i] == "mem_out":
-                offset = args[i]
-                length = args[i + 1]
+                offset = 0
+                if args[i].type == TokenType.NUMBER:
+                    print("Expected Index or Pointer, got Number")
+                    exit(1)
+                elif args[i].type == TokenType.INDEX:
+                    offset = args[i].value
+                elif args[i].type == TokenType.POINTER:
+                    offset = self.Mem[args[i].value]
+
+                length = 0
+                if args[i+1].type == TokenType.INDEX:
+                    length = self.Mem[args[i+1].value] 
+                elif args[i+1].type == TokenType.POINTER:
+                    length = self.Mem[self.Mem[args[i+1].value]]
+                else: 
+                    length = args[i+1].value
                 buf = ctypes.create_string_buffer(length)
                 retArgs.append(ctypes.cast(buf, ctypes.c_void_p))
                 temp['buf'] = buf
                 temp['offset'] = offset
             elif self.SYSCALLS[syscall][i] == "size_t":
-                retArgs.append(ctypes.c_size_t(self.Mem[args[i]]))
+                n = 0
+                if args[i].type == TokenType.INDEX:
+                    n = self.Mem[args[i].value] 
+                elif args[i].type == TokenType.POINTER:
+                    n = self.Mem[self.Mem[args[i].value]]
+                else: 
+                    n = args[i].value
+
+                retArgs.append(ctypes.c_size_t(n))
         return retArgs, temp
 
 
@@ -293,8 +343,11 @@ class Interpreter():
             n2 = self.Mem[self.Mem[t2.value]]
         else: 
             n2 = t2.value
-    
-        return self.LogicOps[op.value](n1, n2)
+        
+        try:
+            return self.LogicOps[op.value](n1, n2)
+        except:
+            print(f"Undefined logic op: {op.value}")
 
     def Run(self, debug=False):
         ip = 0
@@ -323,23 +376,17 @@ class Interpreter():
                     ip+=1
                     args = []
                     while ip < len(self.Program) and self.Program[ip].type in [TokenType.INDEX, TokenType.NUMBER, TokenType.POINTER]:
-                        if self.Program[ip].type == TokenType.INDEX:
-                            args.append(self.Program[ip].value)
-                        elif self.Program[ip].type == TokenType.POINTER:
-                            args.append(self.Mem[self.Program[ip].value])
-                        elif self.Program[ip].type == TokenType.NUMBER:
-                            print("syscall arguments must be indexes, or pointers")
-                            exit(1)
+                        args.append(self.Program[ip])
                         ip+=1
                     ip-=1
                     self.doSyscall(syscallNum, args)
 
             ip+=1
-        print("Memory dump: ", self.Mem)
+        print("Memory dump: ", self.Mem) if debug else None
 
 
 
 if __name__ == "__main__":
     program, labels = preProcess(lexFile(sys.argv[1]))
     inter = Interpreter(program, labels)
-    inter.Run(True)
+    inter.Run(False)
